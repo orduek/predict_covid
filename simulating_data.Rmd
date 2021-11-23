@@ -12,26 +12,10 @@ output:
 Load libraries
 ```{r}
 library(tidyverse)
-
 library(ggplot2)
-
 library(survey)
-
-
-
-# library(magrittr)
-# library(lubridate)
-# library(stringr)
-# library(tibble)
-# library(broom)
-# library(gt)
-# library(knitr)
-# library(devtools)
-# library(DiagrammeR)
-# library(parallel)
-# library(foreach)
-# library(tictoc)
-
+library(survival)
+library(survminer)
 
 ```
 
@@ -115,6 +99,7 @@ props <- table(ageSexInt)/length(ageSexInt) # generate proportion table for samp
 ```{r}
 # run first outside of loop to create dfNew
 dfTest <- df
+dfTest$days <- 101 # set number of days higher then we want
 dNum <- sick_new[1] # numbe
 nstrat <- as.vector(round(dNum*props))
 names(nstrat) <- names(props)
@@ -126,7 +111,7 @@ dfTest <- dfTest[-dfRows,]
 
 for (j in 2:40) {
   dNum <- sick_new[j] # numbe
-  print(j)
+ # print(j)
   nstrat <- as.vector(round(dNum*props))
   names(nstrat) <- names(props)
   nstrat[nstrat==0] <- 1 
@@ -138,6 +123,9 @@ for (j in 2:40) {
   dfTest <- dfTest[-dfRows,]
 
 }
+
+# add to original data
+dfBoth <- rbind(dfNew, dfTest) # add entire population
 ```
 
 ## Look at the data
@@ -205,5 +193,21 @@ ggplot(dfNew, aes(x=days)) + geom_histogram() + facet_grid(~ageGroup) + theme_mi
 # dfBoth = dfBoth[2:nrow(dfBoth),]
 ```
 
+# Cox-Hazard
+
+```{r}
+# create a censor variable
+# create a censore variable who survived more than 30 days
+dfBoth$month <- case_when(dfBoth$days <= 30 ~ 1, TRUE ~ 0) # currently for 30 days survival
+dfBoth$ageGroup <- relevel(dfBoth$ageGroup, ref='>85')
+dfBoth$gender <- factor(dfBoth$gender, levels=c(0,1))
+surv <- Surv(time = dfBoth$days, event = dfBoth$month)  
+summary(surv)
+
+# now cox analysis
+fit.cox <- coxph(surv ~ ageGroup + gender, 
+                   data = dfBoth)
+ggforest(fit.cox, data = dfBoth)
+```
 
 
