@@ -138,61 +138,6 @@ ggplot(dfNew, aes(x=days)) + geom_histogram() + facet_grid(~ageGroup) + theme_mi
 
 
 
-```{r}
-# df$days <- 101 # define number of days to get COVID
-# dfMen <- subset(df,df$gender==1)
-# dfWomen <- subset(df,df$gender==0)
-# keepDatM <- tibble(id=1,  gender=1, days=50)
-# keepDatF <- tibble(id=1, gender=0, days=50)
-# 
-# ageSexInt <- interaction(df$ageGroup, df$gender)
-# 
-# for (j in 1:30) {
-#   dNum <- sick_new[j] # number of new sick people
-#   gUnit <- 2.69 # male/female
-#   aUnit <- 28*2.13 # every decade (age)
-#   ageNum <- dNum/aUnit # get 
-#   # define ages
-#   age1 <- round(ageNum) # 15-25
-#   age2 <- round(2 * ageNum) # 25 - 35
-#   age3 <- round(3 * ageNum) # 35 - 45
-#   age4 <- round(4 * ageNum) # 45 - 55
-#   age5 <- round(5 * ageNum) # 55 - 65
-#   age6 <- round(6 * ageNum) # 65 - 75
-#   age7 <- round(7 * ageNum) # 75-85
-#   age8 <- round(8 * ageNum) # 85-100
-#  
-#   # define genders
-#   a <- dNum / gUnit
-#   f <- round(a)
-#  # print(f)
-#   m <- round(1.69*a)
-#  # print(m)
-#  
-#   
-#   # check if enough people
-#   if (m >= nrow(dfMen)) {
-#     print('Stop Assignment at day')
-#     print(j)
-#     stop("Exhausted number of COVID patients", call. = FALSE)
-#   } else {
-#     
-#   
-#   maleInfected <- sample(nrow(dfMen), m) # sample index number of patients
-#   femaleInfected <- sample(nrow(dfWomen), f) # sample index number of females
-#   keepDatM <- rbind(keepDatM, tibble(id=maleInfected, gender=1,days=j))
-#   keepDatF <- rbind(keepDatF, tibble(id=femaleInfected, gender=0,days=j))
-#   
-#   # remove those indexes from dataframes
-#   dfMen <- dfMen[-maleInfected,]
-#   dfWomen <- dfWomen[-femaleInfected,]
-#   }}
-# 
-# dfBoth <- rbind(keepDatF, keepDatM)
-# # remove the first line
-# dfBoth = dfBoth[2:nrow(dfBoth),]
-```
-
 # Cox-Hazard
 
 ```{r}
@@ -210,4 +155,9 @@ fit.cox <- coxph(surv ~ ageGroup + gender,
 ggforest(fit.cox, data = dfBoth)
 ```
 
-
+# Discussion with Hazan
+- Add vector of R from 1 to 1.5 to 0.8
+- Add vaccination vector from real data
+- Add vaccination effect (60% week after 1st dose and 92% week after 2nd dose)
+- Try to test susceptibility after infection. 
+- Also can use vector from Dashboard - then add a third column of 1st vaccination (60% from week 2-4)
