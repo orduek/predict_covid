@@ -1,0 +1,165 @@
+---
+title: "Using MOH DashBoard"
+authors: "Or Duek & Guy Hazan"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 5
+    toc_float: yes
+---
+
+
+Load libraries
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(survey)
+library(survival)
+library(survminer)
+
+```
+
+Loading data
+```{r}
+mohDat <- read.csv('MOH_data.csv')
+n <- 10 # multiply the 100k. If 10 then 1M
+newVacc <- mohDat$Number.of.new.vaccines # number of new vaccinations
+# now we change it to accomodate to 1M people and think about first dose
+newVacc <- newVacc / 6 / 2
+#plot(newVacc)
+sickNotVacc <- round(mohDat$Positive.PCR.per.100K...not.vaccinated*n) # simulate million
+sickVacc <- round(mohDat$Positive.PCR.per.100K...vaccinated*n)
+sick1stDose <- sickNotVacc * 0.4 # add 60% for first dose 
+plot(sickNotVacc, col='red')
+points(sickVacc, col='blue')
+points(sick1stDose, col='green')
+```
+# Stratify to population
+
+```{r}
+N <- n * 100000 * 5
+id <- 1:N
+# build proportion of ages
+(dat <- data.frame(min=c(15, 25, 40, 60, 75, 65), max=c(24, 34, 44, 54, 64, 100), prop=c(0.15, 0.134, 0.12, 0.1, 0.085,0.01)))
+set.seed(144)  # For reproducibility
+rows <- sample(nrow(dat), N, replace=TRUE, prob=dat$prop)
+table(rows)
+age <- round(dat$min[rows] + runif(N) * (dat$max[rows] - dat$min[rows]))
+hist(age)
+summary(age)
+
+# gender
+gender <- sample(c(0,1), N, replace = TRUE, prob = c(0.51, 0.49))
+table(gender)
+vaccination <- sample(c(0,1,2), N, replace = TRUE, prob = c(0.1, 0.3, 0.6))
+df <- tibble(id=id,age=age, gender=gender)
+df$gender <- factor(df$gender)
+# generate age groups (for future use)
+df$ageGroup <- cut(df$age, breaks=c(14,25,40,60,75,101), labels=c('<25','25-40','41-60','61-75','>75'))
+
+
+df$firstDose <- 0 # start with no first dose
+df$daysTo1st <- 0 # set days to get first vaccination
+```
+
+## Add vaccination (1st dose) and days from 
+
+```{r}
+dfVac <- df
+dfRows <- sample(rownames(dfVac), newVacc[1])
+dfNew <- dfVac[dfRows,]
+dfNew$firstDose = 1
+dfNew$daysTo1st = 1
+dfVac <- dfVac[-as.numeric(dfRows),]
+
+for (i in 2:length(newVacc)) {
+  # distribute vaccinations
+ # print(i)
+  dfRows <- sample(rownames(dfVac), newVacc[i], replace = FALSE)
+  dfTemp <- dfVac[dfRows,]
+  dfTemp$firstDose = 1
+  dfTemp$daysTo1st = i
+  dfNew <-  rbind(dfNew, dfTemp)
+  dfVac <- dfVac[-as.numeric(dfRows),]
+ 
+}
+
+# combine the dataset together
+dfVac <- rbind(dfVac, dfNew)
+dfNew <- NULL # dlete dfNew to avoid confusions
+```
+
+```{r}
+hist(dfVac$daysTo1st)
+```
+
+
+# Now take new sick and distribute through synthetic population
+- Including gender and age risks as well as vaccination
+
+```{r}
+## generate proportional units per demographic variable
+aUnit <- 15*2.13 #28*2.13 # every decade (age). Can calculate as n(a1+a2)/2
+ageProp <- 0.065#1 / aUnit ## 0.0023
+# gender has two
+sexProp <- 0.6#1 / 1.69
+vac1 <- 0.4 # if one week from 1st dose then 0.4 from non vaccinated
+
+
+dfVac$sickDay <- 500 # set value
+for (days in 1:300) { # sicknotvacc vector is NAs from 300 to 327
+  print(days)
+
+nSick <- sickNotVacc[days]
+
+# now to find relevant people from each
+# grab people by gender age from dataset
+# check if sick - if yes, grab another
+# if no - add sick and day
+# set levels
+levelsG <- levels(dfVac$gender)
+levelsAge <- levels(dfVac$ageGroup)
+for (i in seq_along(levelsAge)) {
+  
+  for (g in seq_along(levelsG))
+    # subseting
+    if (g==1) {
+      # setting scale for gender
+      gscale = 0.4
+    } else {gscale = 0.6}
+    # now get size for that specific subset
+    size = round(nSick * ageProp*i * gscale)
+    print('size of sick')
+    print(size)
+    dfSub <- subset(dfVac, dfVac$gender==levelsG[g] & dfVac$ageGroup==levelsAge[i] & dfVac$sickDay==500)
+    print('number of rows in subset')
+    print(nrow(dfSub))
+    samp <- sample(rownames(dfSub), size, replace = FALSE)  
+    dfSub[samp,]$sickDay = days # here its 1 because its the first day
+    
+    # now need to bring back to dfVac
+    mask <- dfVac$id %in% dfSub[samp,]$id # create a mask
+    dfVac[mask,]$sickDay=days # change values in the relevant dataframe
+}
+
+}
+```
+
+# Plot
+
+```{r}
+hist(dfVac$sickDay)
+summary(dfVac$sickDay)
+# remove all healthy
+dfSick <- subset(dfVac, dfVac$sickDay<500)
+hist(dfSick$sickDay)
+```
+
+
+## Talk with Hazan and ideas:
+- Generate weights per age/gender/vaccination (1st dose for now)
+- Multiply all to get specific population
+- subset data to grab that population and then randomly assign
+- combine all data later
+
+
