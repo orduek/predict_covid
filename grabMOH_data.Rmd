@@ -22,10 +22,11 @@ library(survminer)
 Loading data
 ```{r}
 mohDat <- read.csv('MOH_data.csv')
-n <- 10 # multiply the 100k. If 10 then 1M
-newVacc <- mohDat$Number.of.new.vaccines # number of new vaccinations
+n <- 20 # multiply the 100k. If 10 then 1M
+newVacc <- mohDat$Number.of.new.vaccines#Number.of.new.vaccines # number of new vaccinations
+newVacc <- newVacc / (n * 100000)
 # now we change it to accomodate to 1M people and think about first dose
-newVacc <- newVacc / 6 / 2
+newVacc <- newVacc  # make percentrage
 #plot(newVacc)
 sickNotVacc <- round(mohDat$Positive.PCR.per.100K...not.vaccinated*n) # simulate million
 sickVacc <- round(mohDat$Positive.PCR.per.100K...vaccinated*n)
@@ -37,7 +38,7 @@ points(sick1stDose, col='green')
 # Stratify to population
 
 ```{r}
-N <- n * 100000 * 5
+N <- n * 100000 
 id <- 1:N
 # build proportion of ages
 (dat <- data.frame(min=c(15, 25, 40, 60, 75, 65), max=c(24, 34, 44, 54, 64, 100), prop=c(0.15, 0.134, 0.12, 0.1, 0.085,0.01)))
@@ -59,26 +60,26 @@ df$ageGroup <- cut(df$age, breaks=c(14,25,40,60,75,101), labels=c('<25','25-40',
 
 
 df$firstDose <- 0 # start with no first dose
-df$daysTo1st <- 0 # set days to get first vaccination
+df$daysOf1st <- 500 # set days to get first vaccination
 ```
 
 ## Add vaccination (1st dose) and days from 
 
 ```{r}
 dfVac <- df
-dfRows <- sample(rownames(dfVac), newVacc[1])
+dfRows <- sample(rownames(dfVac), newVacc[1]*N)
 dfNew <- dfVac[dfRows,]
 dfNew$firstDose = 1
-dfNew$daysTo1st = 1
+dfNew$daysOf1st = 1
 dfVac <- dfVac[-as.numeric(dfRows),]
 
 for (i in 2:length(newVacc)) {
   # distribute vaccinations
  # print(i)
-  dfRows <- sample(rownames(dfVac), newVacc[i], replace = FALSE)
+  dfRows <- sample(rownames(dfVac), newVacc[i]*nrow(dfVac), replace = FALSE)
   dfTemp <- dfVac[dfRows,]
   dfTemp$firstDose = 1
-  dfTemp$daysTo1st = i
+  dfTemp$daysOf1st = i
   dfNew <-  rbind(dfNew, dfTemp)
   dfVac <- dfVac[-as.numeric(dfRows),]
  
@@ -90,7 +91,7 @@ dfNew <- NULL # dlete dfNew to avoid confusions
 ```
 
 ```{r}
-hist(dfVac$daysTo1st)
+hist(dfVac$daysOf1st)
 ```
 
 
@@ -107,7 +108,8 @@ vac1 <- 0.4 # if one week from 1st dose then 0.4 from non vaccinated
 
 
 dfVac$sickDay <- 500 # set value
-for (days in 1:300) { # sicknotvacc vector is NAs from 300 to 327
+for (days in 1:299) { # sicknotvacc vector is NAs from 300 to 327
+  print('day')
   print(days)
 
 nSick <- sickNotVacc[days]
@@ -119,31 +121,56 @@ nSick <- sickNotVacc[days]
 # set levels
 levelsG <- levels(dfVac$gender)
 levelsAge <- levels(dfVac$ageGroup)
-for (i in seq_along(levelsAge)) {
+levelsFirstDose <- levels(factor(dfVac$firstDose)) 
+for (dose in seq_along(levelsFirstDose)) {
+  if(dose==2) {
+    doseScale = 0.4
+    # adding delays to the days
+    dfDose <- subset(dfVac, days + 27 > (dfVac$daysOf1st + 7)) # grab all the ones with more than 7 days 1st dose
+  } else {doseScale=0.6
+  dfDose <- subset(dfVac, days + 27< (dfVac$daysOf1st + 7)) # grab all the ones with less than 7 days 1st dose or non vaccinated
+  }
   
-  for (g in seq_along(levelsG))
-    # subseting
-    if (g==1) {
-      # setting scale for gender
-      gscale = 0.4
-    } else {gscale = 0.6}
-    # now get size for that specific subset
-    size = round(nSick * ageProp*i * gscale)
-    print('size of sick')
-    print(size)
-    dfSub <- subset(dfVac, dfVac$gender==levelsG[g] & dfVac$ageGroup==levelsAge[i] & dfVac$sickDay==500)
-    print('number of rows in subset')
-    print(nrow(dfSub))
-    samp <- sample(rownames(dfSub), size, replace = FALSE)  
-    dfSub[samp,]$sickDay = days # here its 1 because its the first day
+  for (i in seq_along(levelsAge)) {
     
-    # now need to bring back to dfVac
-    mask <- dfVac$id %in% dfSub[samp,]$id # create a mask
-    dfVac[mask,]$sickDay=days # change values in the relevant dataframe
+    for (g in seq_along(levelsG)) {
+      # subseting
+      if (g==1) {
+        # setting scale for gender
+        gscale = 0.4
+      } else {gscale = 0.6}
+      # now get size for that specific subset
+      size = round(nSick * ageProp*i * gscale * doseScale)
+      print('size of sick')
+      print(size)
+      # adding subset of first dose only those with > daysofsose + 7
+      dfSub <- subset(dfDose, dfDose$gender==levelsG[g] & dfDose$ageGroup==levelsAge[i] & dfDose$sickDay==500)
+      print('number of rows in subset')
+      print(nrow(dfSub))
+      
+      # add situation when nubmer of dfSub smaller than number of sick 
+      ## need to think this through
+      if (size > nrow(dfSub)) {
+        # infect the entire subset
+        samp <- sample(rownames(dfSub), nrow(dfSub), replace = FALSE)    
+      } else {
+        samp <- sample(rownames(dfSub), size, replace = FALSE)  
+      }
+      
+      
+      
+      dfSub[samp,]$sickDay = days # here its 1 because its the first day
+      
+      # now need to bring back to dfVac
+      mask <- dfVac$id %in% dfSub[samp,]$id # create a mask
+      dfVac[mask,]$sickDay=days # change values in the relevant dataframe
+  }
+ }
 }
-
 }
 ```
+
+
 
 # Plot
 
@@ -153,13 +180,62 @@ summary(dfVac$sickDay)
 # remove all healthy
 dfSick <- subset(dfVac, dfVac$sickDay<500)
 hist(dfSick$sickDay)
+hist(dfSick$daysOf1st)
+
+dfSick$firstDose <- factor(dfSick$firstDose)
+ggplot(dfSick, aes(x = sickDay)) +
+  geom_histogram(aes(color = firstDose, fill=firstDose),
+                position = "identity", bins = 30, alpha=0.4) +
+   scale_color_manual(values = c("#00AFBB", "#E7B800")) +
+  scale_fill_manual(values = c("#00AFBB", "#E7B800")) + theme_minimal() + ggtitle("1st dose vs. non")
+
+
+ggplot(dfSick, aes(x = sickDay)) +
+  geom_histogram(aes(color = gender, fill=gender),
+                position = "identity", bins = 30, alpha=0.4) +
+   scale_color_manual(values = c("#00AFBB", "#E7B800")) +
+  scale_fill_manual(values = c("#00AFBB", "#E7B800")) + theme_minimal() + ggtitle("Gender")
+
+
+ggplot(dfSick, aes(x = sickDay)) +
+  geom_histogram(aes(color = ageGroup, fill=ageGroup),
+                position = "identity", bins = 30, alpha=0.4) + theme_minimal() + ggtitle("Age Group")
+  
 ```
 
 
-## Talk with Hazan and ideas:
-- Generate weights per age/gender/vaccination (1st dose for now)
-- Multiply all to get specific population
-- subset data to grab that population and then randomly assign
-- combine all data later
+# Cox Hazard
 
+```{r}
+library(ggfortify)
+# create a censor variable
+# create a censore variable who survived more than 30 days
+dfBoth <-dfVac
+dfBoth$firstDose <- factor(dfBoth$firstDose)
+# clear some subjects
+#dfBoth1 <- dfBoth[order(dfBoth$sickDay), ] # order by sickday
+#dfBoth <- dfBoth1[1:1000000,]
+dfBoth$month <- case_when(dfBoth$sickDay <= 29 ~ 1, TRUE ~ 0) # currently for 100 days survival
+dfBoth$ageGroup <- relevel(dfBoth$ageGroup, ref='61-75')
+dfBoth$firstDose <- relevel(dfBoth$firstDose, ref='1')
+dfBoth$gender <- factor(dfBoth$gender, levels=c(0,1))
+surv <- Surv(time = dfBoth$sickDay, event = dfBoth$month)  
+summary(surv)
+k_fit <- survfit(surv ~ ageGroup, data=dfBoth)
+autoplot(k_fit) + theme_minimal() + ggtitle("Age Group")
+
+
+k_fitD <- survfit(surv ~ firstDose, data=dfBoth)
+autoplot(k_fitD) + theme_minimal() + ggtitle("Vaccination")
+```
+
+
+# now cox analysis
+
+```{r}
+
+fit.cox <- coxph(surv ~ ageGroup + gender + firstDose, 
+                   data = dfBoth)
+ggforest(fit.cox, data = dfBoth)
+```
 
