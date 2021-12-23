@@ -19,7 +19,7 @@ library(survminer)
 
 ```
 
-Loading data
+# Loading data
 ```{r}
 mohDat <- read.csv('MOH_data.csv')
 n <- 20 # multiply the 100k. If 10 then 1M
@@ -35,6 +35,7 @@ plot(sickNotVacc, col='red')
 points(sickVacc, col='blue')
 points(sick1stDose, col='green')
 ```
+
 # Stratify to population
 
 ```{r}
@@ -63,7 +64,7 @@ df$firstDose <- 0 # start with no first dose
 df$daysOf1st <- 500 # set days to get first vaccination
 ```
 
-## Add vaccination (1st dose) and days from 
+# Add vaccination (1st dose) and days from 
 
 ```{r}
 dfVac <- df
@@ -93,6 +94,7 @@ dfNew <- NULL # dlete dfNew to avoid confusions
 ```{r}
 hist(dfVac$daysOf1st)
 ```
+
 
 
 # Now take new sick and distribute through synthetic population
@@ -171,7 +173,6 @@ for (dose in seq_along(levelsFirstDose)) {
 ```
 
 
-
 # Plot
 
 ```{r}
@@ -204,7 +205,7 @@ ggplot(dfSick, aes(x = sickDay)) +
 ```
 
 
-# Cox Hazard
+# Survival Analysis
 
 ```{r}
 library(ggfortify)
@@ -215,7 +216,7 @@ dfBoth$firstDose <- factor(dfBoth$firstDose)
 # clear some subjects
 #dfBoth1 <- dfBoth[order(dfBoth$sickDay), ] # order by sickday
 #dfBoth <- dfBoth1[1:1000000,]
-dfBoth$month <- case_when(dfBoth$sickDay <= 29 ~ 1, TRUE ~ 0) # currently for 100 days survival
+dfBoth$month <- case_when(dfBoth$sickDay <= 299 ~ 1, TRUE ~ 0) # currently for 100 days survival
 dfBoth$ageGroup <- relevel(dfBoth$ageGroup, ref='61-75')
 dfBoth$firstDose <- relevel(dfBoth$firstDose, ref='1')
 dfBoth$gender <- factor(dfBoth$gender, levels=c(0,1))
@@ -230,7 +231,7 @@ autoplot(k_fitD) + theme_minimal() + ggtitle("Vaccination")
 ```
 
 
-# now cox analysis
+# Cox Hazard Ratio
 
 ```{r}
 
