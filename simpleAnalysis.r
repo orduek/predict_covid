@@ -7,7 +7,15 @@ library(ggplot2)
 library(survey)
 library(survival)
 library(survminer)
+library(gtsummary)
 
+
+# descriptive
+
+trial2 <- dfBoth %>% select(gender, ageGroup, timeOfVac)
+
+# summarize the data with our package
+table1 <- tbl_summary(trial2)
 
 ## 
 # set censoring decision

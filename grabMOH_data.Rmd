@@ -24,7 +24,7 @@ library(truncnorm)
 mohDat <- read.csv('MOH_data.csv')
 n <- 20 # multiply the 100k. If 10 then 1M
 newVacc <- mohDat$Number.of.new.vaccines#Number.of.new.vaccines # number of new vaccinations
-newVacc <- newVacc / (n*1.3 * 100000)
+newVacc <- newVacc / (n*1.8 * 100000)
 # now we change it to accomodate to 1M people and think about first dose
 newVacc <- newVacc  # make percentrage
 #plot(newVacc)
@@ -105,6 +105,20 @@ sum(dfVac$firstDose) # 1,825,021 vaccinated
 MASS::truehist(dfVac$vacHour)
 ```
 
+# Calculate probability to get infected dependend on time of vaccination
+```{r}
+x <- seq(from=0.85, to=0.99, by=0.01)
+y = sin(x)
+plot(x,y)
+curve(cos, 0,23)
+#vecShuff <- c(0.88, 0.95)
+# shuffle the vector
+vecShuff <- c(rbeta(1,6,1.5), rbeta(1,6,1.5))
+vecShuff <- sample(vecShuff)
+# make a beta distribution that is close to 
+
+```
+
 
 
 # Now take new sick and distribute through synthetic population
@@ -112,9 +126,7 @@ MASS::truehist(dfVac$vacHour)
 
 ```{r}
 # to test randomly assigned effectiveness of time of vacc - I create a vector of probabilities (two) and shuffle it
-vecShuff <- c(0.88, 0.95)
-# shuffle the vector
-vecShuff <- sample(vecShuff)
+
 ## generate proportional units per demographic variable
 aUnit <- 15*2.13 #28*2.13 # every decade (age). Can calculate as n(a1+a2)/2
 ageProp <- 0.065#1 / aUnit ## 0.0023
@@ -270,18 +282,6 @@ fit.cox <- coxph(surv ~  gender + ageGroup + timeOfVac,
 ggforest(fit.cox, data = dfBoth)
 
 ```
-
-## Calculate HR to morning
-```{r}
-# need to take all unvaccinated and compare to those who were vaccinated in the morning. 
-# Should adjust and create the relevant dataset (probably also create a new variable)
-dfMorning <- dplyr::filter(dfBoth, timeOfVac=='morning'| timeOfVac=='notVacc')
-survM <- Surv(time = dfMorning$sickDay, event = dfMorning$month)
-fit.coxM <- coxph(survM ~  gender + ageGroup + timeOfVac, 
-                   data = dfMorning)
-ggforest(fit.coxM, data = dfMorning)
-```
-
 
 ## Summary:
 - Model recovers effectiveness of vaccination (needs to calculate using known calculations)
