@@ -268,11 +268,27 @@ autoplot(k_fitT) + theme_minimal() + ggtitle("Vaccination Time")
 fit.cox <- coxph(surv ~  gender + ageGroup + timeOfVac, 
                    data = dfBoth)
 ggforest(fit.cox, data = dfBoth)
+
 ```
 
+## Calculate HR to morning
+```{r}
+# need to take all unvaccinated and compare to those who were vaccinated in the morning. 
+# Should adjust and create the relevant dataset (probably also create a new variable)
+dfMorning <- dplyr::filter(dfBoth, timeOfVac=='morning'| timeOfVac=='notVacc')
+survM <- Surv(time = dfMorning$sickDay, event = dfMorning$month)
+fit.coxM <- coxph(survM ~  gender + ageGroup + timeOfVac, 
+                   data = dfMorning)
+ggforest(fit.coxM, data = dfMorning)
+```
+
+
+## Summary:
+- Model recovers effectiveness of vaccination (needs to calculate using known calculations)
+- Seems ready to move toward 2nd/3rd/4th vaccine
+- Should start building the Bayes model (Stan? Pymc?)
+
 ## Hazan:
-* Keep 1st dose - done
-* Divide 24 hours for first dose - done
-* divide hours to 2/3 group - randomly assign risk/effectiveness (0.85-1)
-* Cox finds the level of effectiveness?
-* Start building the Bayes model
+- Change effectivity to distributions instead of set number (the vecShuff)
+- Try to build a function that grabs probability to get infected by the time of day. The graph should look like a cosinus. 
+- Create a few analysis that checks effectiveness (using logistic regression to calculate OR per hour of vacc or using Cox-Hazard)
